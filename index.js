@@ -3,6 +3,7 @@ const PRODUCT_NETWORK_CALLBACK = "https://www.binance.com/bapi/nft/v1/friendly/n
 
 const URL_GET_PRODUCT_DETAILS = "https://www.binance.com/bapi/nft/v1/friendly/nft/mystery-box/detail?productId=";
 const URL_PURCHASE_PRODUCT = "https://www.binance.com/bapi/nft/v1/private/nft/mystery-box/purchase";
+const URL_START = "https://binance.com/ru/nft";
 
 const AUCTION_PRODUCT_ID = "153057830831042560";
 
@@ -23,6 +24,28 @@ var isAutoBuyEnabled = false;
 
 var intervalUpdateID;
 
+async function onMainPageRecievedResponse(response)
+{
+	const headers = response.headers();
+	
+	let urlText = response.url();
+	console.log(urlText);
+	if(urlText.includes(LOGIN_NETWORK_CALLBACK))
+	{
+		console.log("LOG IN!");
+		
+		isUserSignIn = true;
+		
+		openAuctionPage();
+	}
+	else if(urlText.includes(PRODUCT_NETWORK_CALLBACK))
+	{
+		const jsonResponse = await response.json();
+		
+		await initProduct(urlText.replace(PRODUCT_NETWORK_CALLBACK, ''), jsonResponse);
+	}
+}
+
 async function createBrowser()
 {
 	puppeteer.use(stealthPlugin());
@@ -34,34 +57,9 @@ async function createBrowser()
 	});
 	
 	mainPage = (await browser.pages())[0];
+	mainPage.on('response', onMainPageRecievedResponse);
 	
-	mainPage.on('response', async (response) => 
-	{
-        const headers = response.headers();
-		
-		let urlText = response.url();
-		if(urlText.includes(LOGIN_NETWORK_CALLBACK))
-		{
-			console.log("LOG IN!");
-			
-			isUserSignIn = true;
-			
-			openAuctionPage();
-		}
-		else if(urlText.includes(PRODUCT_NETWORK_CALLBACK))
-		{
-			const jsonResponse = await response.json();
-			
-			await initProduct(urlText.replace(PRODUCT_NETWORK_CALLBACK, ''), jsonResponse);
-		}
-    });
-	
-	const url = "https://binance.com/ru/nft";
-	
-	await mainPage.goto(url);
-	
-	await mainPage.waitFor(3000);
-	// await mainPage.hover("/html/body/div[2]/div/div/div[3]/button[2]");
+	console.log("[NFT BOT]: Browser created!");
 }
 
 async function initProduct(id, productData)
@@ -134,13 +132,52 @@ async function openAuctionPage()
 	});
 }
 
+async function getElementByPath(page, path)
+{
+	return await page.evaluate(async () => {
+		return await new Promise(resolve => {
+			return document.evaluate(path, document, null, XPathResult.ANY_TYPE, null);
+		});
+	});
+}
+
 // LOGIC
 
 main();
 
+
 async function main()
 {
+	// Create browser
 	await createBrowser();
+	
+	// Open default page
+	await mainPage.goto(URL_START);
+	
+	// Wait for user sign in
+	await until(() => isUserSignIn == true);
+	
+	console.log("LOG IN COMPLETE GOOD JOB!!!"); 
+	
+	var path = "/html/body/div[2]/div/div/div[3]/button[2]";
+	
+	await mainPage.waitForXPath(path);
+	
+	const elementToClick = await mainPage.$x(path);
+	
+	//await mainPage.hover(elementToClick);
+	
+	await elementToClick[0].click({ 
+		"button": "left",
+		"delay": 50
+	});
+	
+	console.log(elementToClick[0]);
+	
+	// var ddata = await getElementByPath(mainPage, "//*[@id='__APP']/div/div[2]/main/div/div[2]/div[1]/div[2]/div[4]/div[2]/div/button[1]");
+	// console.log(ddata);
+	
+	// await mainPage.hover("/html/body/div[2]/div/div/div[3]/button[2]");
 
 	// // Wait for login and product page
 	// while(true)
@@ -160,4 +197,14 @@ async function main()
 function getCurrentUnixTime()
 {
 	return (new Date()).getTime();
+}
+
+function until(conditionFunction) 
+{
+	const poll = resolve => {
+		if(conditionFunction()) resolve();
+		else setTimeout(_ => poll(resolve), 400);
+	}
+
+	return new Promise(poll);
 }
