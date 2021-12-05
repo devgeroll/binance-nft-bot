@@ -9,6 +9,8 @@
   "author": "dev.geroll",
   "license": "ISC",
   "dependencies": {
-    "puppeteer": "^12.0.1"
+    "puppeteer": "^12.0.1",
+    "puppeteer-extra": "^3.2.3",
+    "puppeteer-extra-plugin-stealth": "^2.9.0"
   }
 }

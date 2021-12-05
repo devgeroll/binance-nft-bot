@@ -6,7 +6,8 @@ const URL_PURCHASE_PRODUCT = "https://www.binance.com/bapi/nft/v1/private/nft/my
 
 const AUCTION_PRODUCT_ID = "153057830831042560";
 
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-extra')
+const stealthPlugin = require('puppeteer-extra-plugin-stealth')
 
 var isUserSignIn = false;
 var browser;
@@ -24,6 +25,8 @@ var intervalUpdateID;
 
 async function createBrowser()
 {
+	puppeteer.use(stealthPlugin());
+	
 	browser = await puppeteer.launch({
 		headless: false,
 		defaultViewport: null,
@@ -58,7 +61,7 @@ async function createBrowser()
 	await mainPage.goto(url);
 	
 	await mainPage.waitFor(3000);
-	await mainPage.hover("/html/body/div[2]/div/div/div[3]/button[2]");
+	// await mainPage.hover("/html/body/div[2]/div/div/div[3]/button[2]");
 }
 
 async function initProduct(id, productData)
