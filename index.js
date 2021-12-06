@@ -1,5 +1,6 @@
 const LOGIN_NETWORK_CALLBACK = "https://www.binance.com/bapi/accounts/v1/public/authcenter/callback";
 const PRODUCT_NETWORK_CALLBACK = "https://www.binance.com/bapi/nft/v1/friendly/nft/mystery-box/detail?productId=";
+const AUCTION_NETWORK_CALLBACK = "https://www.binance.com/bapi/nft/v1/private/nft/nft-trade/order-create";
 
 const DEV_CALLBACK = "https://www.binance.com/bapi/accounts/v1/public/authcenter/auth";
 
@@ -19,6 +20,8 @@ var isUserSignIn = false;
 var browser;
 var mainPage;
 var auctionPage;
+
+var fakeHeaders;
 
 // Product
 var isProductInitialised = false;
@@ -43,6 +46,8 @@ async function createBrowser()
 	
 	mainPage = (await browser.pages())[0];
 	
+	await mainPage.setDefaultNavigationTimeout(0);
+	
 	console.log("[NFT BOT]: Browser created!");
 }
 
@@ -66,18 +71,13 @@ async function openAuctionPage()
 {
 	var auctionURL = URL_AUCTION_PAGE + config['auctionProductID'];
 	auctionPage = await browser.newPage();
-		
-	auctionPage.on('response', async (response) => 
-	{
-		console.log(response);
-		
-        const headers = response.headers();
-		
-		let urlText = response.url();
-    });
+	await auctionPage.setDefaultNavigationTimeout(0);
 	
 	await auctionPage.goto(auctionURL);
-	await auctionPage.waitFor(3000);
+	
+	await clickOnElement(auctionPage, "/html/body/div[1]/div/div[2]/main/div/div[2]/div[1]/div[2]/div[4]/div[2]/div/button[1]")
+	
+	return;
 	
 	await auctionPage.evaluate(() => {
 	  const xpath = "//*[@id='__APP']/div/div[2]/main/div/div[2]/div[1]/div[2]/div[4]/div[2]/div/button[1]";
@@ -85,6 +85,45 @@ async function openAuctionPage()
 
 	  result.iterateNext().click();
 	});
+	
+	
+	// Steal captcha token
+	const auctionSellResponse = await auctionPage.waitForResponse(response => response.url().includes(AUCTION_NETWORK_CALLBACK));
+	if(auctionSellResponse != null)
+	{
+		var headers = auctionSellResponse.request().headers();
+		
+		console.log(headers); 
+		
+		var csrftoken = headers['csrftoken'];
+		var cookie = headers['cookie'];
+		var deviceInfo = headers['device-info'];
+		var userAgent = headers['user-agent'];
+		var xTraceID = headers['x-trace-id'];
+		var xUIRequestTrace = headers['x-ui-request-trace'];
+		var xCaptchaKey = headers['x-nft-checkbot-sitekey'];
+		var xCaptchaToken = headers['x-nft-checkbot-token'];
+		
+		fakeHeaders = 
+		{
+			'Host': 'www.binance.com',
+			'Accept': '*/*',
+			'Accept-Language': 'ru,en-US;q=0.9,en;q=0.8,uk;q=0.7',
+			'Accept-Encoding': 'gzip, deflate, br',
+			'clienttype': 'web',
+			'content-type': 'application/json',
+			'x-trace-id': xTraceID,
+			'x-ui-request-trace': xUIRequestTrace,
+			'cookie': cookie,
+			'csrftoken': csrftoken, 
+			'device-info': deviceInfo,
+			'user-agent': userAgent,
+            'x-nft-checkbot-token': xCaptchaToken,
+            'x-nft-checkbot-sitekey':xCaptchaKey,
+		};
+		
+		console.log("[NFT-NPC]: Captcha token has been stolen!");
+	}
 }
 
 async function getElementByPath(page, path)
@@ -119,9 +158,7 @@ async function getProductDetails()
 		productSaleTime = getCurrentUnixTime() + (60000); // DEV
 		
 		auctionPreparingTime = productSaleTime - 50000; // 50 seconds delay
-		
-		console.log(productDetails);
-		
+				
 		console.log("[NFT-NPC]: Product initialised!"); 
 	}
 }
@@ -142,7 +179,7 @@ async function waitForSaleStart()
 {
 	const poll = resolve => 
 	{
-		if(getCurrentUnixTime() >= productSaleTime)
+		if(getCurrentUnixTime() >= auctionPreparingTime)
 		{
 			resolve();
 		}
@@ -150,8 +187,6 @@ async function waitForSaleStart()
 		{
 			setTimeout(() => poll(resolve), 500);
 		}
-		
-		console.log("Milliseconds until purchase: " + (productSaleTime - getCurrentUnixTime()));
 	}
 
 	return new Promise(poll);
@@ -162,75 +197,9 @@ async function main()
 	// Create browser
 	await createBrowser();
 	
-	await mainPage.waitFor(3000);
-	
-	// Open product page
-	mainPage.goto(URL_PRODUCT_PAGE + config['mysteryBoxID']);
-	
-	// Steal data
-	const productDetailsResponse = await mainPage.waitForResponse(response => response.url().includes(DEV_CALLBACK));
-	if(productDetailsResponse != null)
-	{
-		var headers = productDetailsResponse.request().headers();
-		
-		console.log(headers); 
-		console.log(headers['csrftoken']); 
-		
-		var csrftoken = headers['csrftoken'];
-		var cookie = headers['cookie'];
-		var deviceInfo = headers['device-info'];
-		var userAgent = headers['user-agent'];
-		var xTraceID = headers['x-trace-id'];
-		var xUIRequestTrace = headers['x-ui-request-trace'];
-		
-		var headers = 
-		{
-			'Host': 'www.binance.com',
-			'Accept': '*/*',
-			'Accept-Language': 'ru,en-US;q=0.9,en;q=0.8,uk;q=0.7',
-			'Accept-Encoding': 'gzip, deflate, br',
-			'clienttype': 'web',
-			'content-type': 'application/json',
-			'x-trace-id': xTraceID,
-			'x-ui-request-trace': xUIRequestTrace,
-			'cookie': cookie,
-			'csrftoken': csrftoken, 
-			'device-info': deviceInfo,
-			'user-agent': userAgent
-		};
-		
-		await mainPage.setRequestInterception(true);
-		
-		mainPage.on('request', request => 
-		{
-			console.log(request.url());
-			
-			if(request.url().includes(DEV_CALLBACK))
-			{
-				var data = 
-				{
-					 'method': 'POST',
-					 'postData': JSON.stringify(null),
-					 'headers': headers,
-				};
-
-				request.continue(data);
-			}
-		});
-		
-		const result = await mainPage.evaluate(() => {
-			return fetch('https://www.binance.com/bapi/accounts/v1/public/authcenter/auth', {method: 'POST' }).then(res => res.json());
-		});
-		
-		console.log(result);
-	}
-	
-	return;
-	
-	
 	// Get product details
 	await getProductDetails();
-	
+		
 	// Wait for user sign in
 	await waitForUserSignIn();
 	
@@ -283,11 +252,95 @@ async function main()
 			// break;
 		// }
 	// }
+	
+	
+	
+	await mainPage.waitFor(3000);
+	
+	// Open product page
+	mainPage.goto(URL_PRODUCT_PAGE + config['mysteryBoxID']);
+	
+	// Steal data
+	const productDetailsResponse = await mainPage.waitForResponse(response => response.url().includes(DEV_CALLBACK));
+	if(productDetailsResponse != null)
+	{
+		var headers = productDetailsResponse.request().headers();
+		
+		console.log(headers); 
+		
+		var csrftoken = headers['csrftoken'];
+		var cookie = headers['cookie'];
+		var deviceInfo = headers['device-info'];
+		var userAgent = headers['user-agent'];
+		var xTraceID = headers['x-trace-id'];
+		var xUIRequestTrace = headers['x-ui-request-trace'];
+		var xCaptchaKey = headers['x-nft-checkbot-sitekey'];
+		var xCaptchaToken = headers['x-nft-checkbot-token'];
+		
+		console.log("[NFT-NPC]: Captcha token has been stolen!");
+		
+		var headers = 
+		{
+			'Host': 'www.binance.com',
+			'Accept': '*/*',
+			'Accept-Language': 'ru,en-US;q=0.9,en;q=0.8,uk;q=0.7',
+			'Accept-Encoding': 'gzip, deflate, br',
+			'clienttype': 'web',
+			'content-type': 'application/json',
+			'x-trace-id': xTraceID,
+			'x-ui-request-trace': xUIRequestTrace,
+			'cookie': cookie,
+			'csrftoken': csrftoken, 
+			'device-info': deviceInfo,
+			'user-agent': userAgent,
+            'x-nft-checkbot-token': xCaptchaToken,
+            'x-nft-checkbot-sitekey':xCaptchaKey,
+		};
+		
+		await mainPage.setRequestInterception(true);
+		
+		mainPage.on('request', request => 
+		{
+			console.log(request.url());
+			
+			if(request.url().includes(DEV_CALLBACK))
+			{
+				var data = 
+				{
+					 'method': 'POST',
+					 'postData': JSON.stringify(null),
+					 'headers': headers,
+				};
+
+				request.continue(data);
+			}
+		});
+		
+		const result = await mainPage.evaluate(() => {
+			return fetch('https://www.binance.com/bapi/accounts/v1/public/authcenter/auth', {method: 'POST' }).then(res => res.json());
+		});
+		
+		console.log(result);
+	}
 }
 
 //waitForPurchase();
 
 // Extensions
+async function clickOnElement(page, path)
+{
+	await page.waitForXPath(path);
+	
+	const elementToClick = await mainPage.$x(path);
+	if(elementToClick != null)
+	{
+		await elementToClick[0].click({ 
+			"button": "left",
+			"delay": 50
+		});	
+	}
+}
+
 function getCurrentUnixTime()
 {
 	return (new Date()).getTime();
