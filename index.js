@@ -12,7 +12,7 @@ const URL_START = "https://binance.com/ru/nft";
 const URL_PRODUCT_PAGE = "https://www.binance.com/ru/nft/mystery-box/detail?number=1&productId=";
 const URL_AUCTION_PAGE = "https://www.binance.com/ru/nft/goods/mystery-box/detail?isOpen=true&itemId=";
 
-const REQUESTS_COUNT = 3;
+const REQUESTS_COUNT = 250;
 
 const puppeteer = require('puppeteer-extra')
 const stealthPlugin = require('puppeteer-extra-plugin-stealth')
@@ -87,7 +87,6 @@ async function purchaseProduct()
 			var data = 
 			{
 				 'method': 'POST',
-				 'postData': requestPostDataString,
 				 'headers': fakeHeaders,
 			};
 
@@ -206,7 +205,6 @@ async function getProductDetails()
 		productID = config['mysteryBoxID'];
 		
 		productSaleTime = productDetails['data']['startTime'] - 3000;
-		productSaleTime = getCurrentUnixTime() + (90000); // DEV
 		
 		auctionPreparingTime = productSaleTime - 50000; // 50 seconds delay
 				
