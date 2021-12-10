@@ -2,11 +2,12 @@ const LOGIN_NETWORK_CALLBACK = "https://www.binance.com/bapi/accounts/v1/public/
 const PRODUCT_NETWORK_CALLBACK = "https://www.binance.com/bapi/nft/v1/friendly/nft/mystery-box/detail?productId=";
 const AUCTION_NETWORK_CALLBACK = "https://www.binance.com/bapi/nft/v1/private/nft/nft-trade/product-onsale";
 const PURCHASE_NETWORK_CALLBACK = "https://www.binance.com/bapi/nft/v1/private/nft/mystery-box/purchase";
+const TEXT_NETWORK_CALLBACK = "binance-chat";
 
 const URL_PRODUCT_PAGE = "https://www.binance.com/ru/nft/mystery-box/detail?number=1&productId=";
 const URL_AUCTION_PAGE = "https://www.binance.com/ru/nft/goods/mystery-box/detail?isOpen=true&itemId=";
 
-const REQUESTS_COUNT = 250;
+const REQUESTS_COUNT = 2;
 
 const puppeteer = require('puppeteer-extra')
 const stealthPlugin = require('puppeteer-extra-plugin-stealth')
@@ -20,6 +21,9 @@ var auctionPage;
 
 var fakeHeaders;
 var isHeadersStolen;
+
+var isConfirmButtonTextStolen;
+var confirmButtonText;
 
 // Product
 var isProductInitialised = false;
@@ -114,8 +118,17 @@ async function openAuctionPage()
 	var auctionURL = URL_AUCTION_PAGE + config['auctionProductID'];
 	
 	auctionPage = await browser.newPage();
-	auctionPage.on('response', async response => {		
-		if(response.url().includes(AUCTION_NETWORK_CALLBACK))
+	auctionPage.on('response', async response => {	
+		if(response.url().includes(TEXT_NETWORK_CALLBACK))
+		{
+			var jsonResponse = await response.json();
+			if(jsonResponse != null)
+			{
+				isConfirmButtonTextStolen = true;
+				confirmButtonText = jsonResponse['chat5-popup-button-right-end'];
+			}
+		}
+		else if(response.url().includes(AUCTION_NETWORK_CALLBACK))
 		{
 			var headers = response.request().headers();
 
@@ -159,6 +172,8 @@ async function openAuctionPage()
 	await auctionPage.setDefaultNavigationTimeout(0);
 	
 	await auctionPage.goto(auctionURL);
+
+	await waitForConfirmButtonText();
 	
 	await clickOnElement(auctionPage, '//*[@id="__APP"]/div/div[2]/main/div/div[2]/div[1]/div[2]/div[4]/div[2]/div/button[1]', 500);
 	
@@ -172,8 +187,8 @@ async function openAuctionPage()
 	
 	await delay(1000);
 	
-	await clickOnElement(auctionPage, '/html/body/div[5]/div/div/div[7]/button[2]');
-	
+	await clickOnElement(auctionPage, "//button[contains(text(), '" + confirmButtonText +"')]");
+
 	await waitForFakeHeaders();
 	
 	await auctionPage.close();
@@ -193,8 +208,6 @@ async function getProductDetails()
 		isProductInitialised = true;
 				
 		productSaleTime = productDetails['data']['startTime'] - 2000;
-		productSaleTime = getCurrentUnixTime() + 60000;
-		
 		auctionPreparingTime = productSaleTime - 40000; // 40 seconds delay
 				
 		console.log("[NFT-NPC]: Product initialised!"); 
@@ -262,6 +275,23 @@ async function waitForFakeHeaders()
 		else
 		{
 			setTimeout(() => poll(resolve), 1000);
+		}
+	}
+
+	return new Promise(poll);
+}
+
+async function waitForConfirmButtonText()
+{
+	const poll = resolve => 
+	{
+		if(isConfirmButtonTextStolen)
+		{
+			resolve();
+		}
+		else
+		{
+			setTimeout(() => poll(resolve), 500);
 		}
 	}
 
