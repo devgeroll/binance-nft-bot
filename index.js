@@ -3,12 +3,6 @@ const PRODUCT_NETWORK_CALLBACK = "https://www.binance.com/bapi/nft/v1/friendly/n
 const AUCTION_NETWORK_CALLBACK = "https://www.binance.com/bapi/nft/v1/private/nft/nft-trade/product-onsale";
 const PURCHASE_NETWORK_CALLBACK = "https://www.binance.com/bapi/nft/v1/private/nft/mystery-box/purchase";
 
-const DEV_CALLBACK = "https://www.binance.com/bapi/accounts/v1/public/authcenter/auth";
-
-const URL_GET_PRODUCT_DETAILS = "https://www.binance.com/bapi/nft/v1/friendly/nft/mystery-box/detail?productId=";
-const URL_PURCHASE_PRODUCT = "https://www.binance.com/bapi/nft/v1/private/nft/mystery-box/purchase";
-const URL_START = "https://binance.com/ru/nft";
-
 const URL_PRODUCT_PAGE = "https://www.binance.com/ru/nft/mystery-box/detail?number=1&productId=";
 const URL_AUCTION_PAGE = "https://www.binance.com/ru/nft/goods/mystery-box/detail?isOpen=true&itemId=";
 
@@ -29,13 +23,8 @@ var isHeadersStolen;
 
 // Product
 var isProductInitialised = false;
-var productID;
 var productSaleTime;
 var auctionPreparingTime;
-
-var isAutoBuyEnabled = false;
-
-var intervalUpdateID;
 
 // Start programm
 main();
@@ -202,9 +191,7 @@ async function getProductDetails()
 		let productDetails = await productDetailsResponse.json();
 
 		isProductInitialised = true;
-		
-		productID = config['mysteryBoxID'];
-		
+				
 		productSaleTime = productDetails['data']['startTime'] - 2000;
 		productSaleTime = getCurrentUnixTime() + 60000;
 		
