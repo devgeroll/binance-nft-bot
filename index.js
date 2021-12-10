@@ -25,6 +25,7 @@ var mainPage;
 var auctionPage;
 
 var fakeHeaders;
+var isHeadersStolen;
 
 // Product
 var isProductInitialised = false;
@@ -75,9 +76,6 @@ async function openProductPage()
 
 async function purchaseProduct()
 {
-	//const requestPostData = JSON.stringify({ number: 1, productId: config['mysteryBoxID'] });
-	const requestPostDataString = 'number=1&productId=' + config['mysteryBoxID'];
-	
 	await mainPage.setRequestInterception(true);
 	
 	mainPage.on('request', request => 
@@ -96,10 +94,10 @@ async function purchaseProduct()
 	
 	for(let i = 0; i < REQUESTS_COUNT; i++)
 	{
-		mainPage.evaluate(() => 
+		mainPage.evaluate((purchaseProductID) => 
 		{
-			fetch("https://www.binance.com/bapi/nft/v1/private/nft/mystery-box/purchase", {method: 'POST', body: JSON.stringify({ number: 1, productId: 163164431084832768 }) });
-		});
+			window.bnvelidate.postBNHTTP('/bapi/nft/v1/private/nft/mystery-box/purchase', {number: 1, productId: purchaseProductID});
+		}, config['mysteryBoxID']);
 	}
 }
 
@@ -111,7 +109,8 @@ async function createBrowser()
 		headless: false,
 		defaultViewport: null,
 		devtools: true,
-		args: ['--start-maximized'] 
+		ignoreHTTPSErrors: true,
+		args: ['--start-maximized', '--shm-size=2gb']
 	});
 	
 	mainPage = (await browser.pages())[0];
@@ -132,6 +131,8 @@ async function openAuctionPage()
 			var headers = response.request().headers();
 
 			var csrftoken = headers['csrftoken'];
+			var bncuuid = headers['bnc-uuid'];
+			var fvideoid = headers['fvideo-id'];
 			var cookie = headers['cookie'];
 			var deviceInfo = headers['device-info'];
 			var userAgent = headers['user-agent'];
@@ -148,6 +149,8 @@ async function openAuctionPage()
 				'Accept-Encoding': 'gzip, deflate, br',
 				'clienttype': 'web',
 				'content-type': 'application/json',
+				'bnc-uuid': bncuuid,
+				'fvideo-id': fvideoid,
 				'x-trace-id': xTraceID,
 				'x-ui-request-trace': xUIRequestTrace,
 				'cookie': cookie,
@@ -158,10 +161,9 @@ async function openAuctionPage()
 				'x-nft-checkbot-sitekey':xCaptchaKey,
 			};
 
-			console.log(fakeHeaders); 
 			console.log("[NFT-NPC]: Captcha token has been stolen!");
-			
-			auctionPage.close();
+
+			isHeadersStolen = true;
 		}
 	});
 	
@@ -181,13 +183,12 @@ async function openAuctionPage()
 	
 	await delay(1000);
 	
-	await clickOnElement(auctionPage, '/html/body/div[6]/div/div/div[8]/button[2]');
+	await clickOnElement(auctionPage, '/html/body/div[5]/div/div/div[7]/button[2]');
 	
-	await delay(5000);
+	await waitForFakeHeaders();
 	
-	//await auctionPage.close();
+	await auctionPage.close();
 }
-
 
 async function getProductDetails()
 {
@@ -204,9 +205,10 @@ async function getProductDetails()
 		
 		productID = config['mysteryBoxID'];
 		
-		productSaleTime = productDetails['data']['startTime'] - 3000;
+		productSaleTime = productDetails['data']['startTime'] - 2000;
+		productSaleTime = getCurrentUnixTime() + 60000;
 		
-		auctionPreparingTime = productSaleTime - 50000; // 50 seconds delay
+		auctionPreparingTime = productSaleTime - 40000; // 40 seconds delay
 				
 		console.log("[NFT-NPC]: Product initialised!"); 
 	}
@@ -257,6 +259,23 @@ async function waitForSaleStart()
 		}
 		
 		console.log("Milliseconds until sale start: " + (productSaleTime - getCurrentUnixTime()));
+	}
+
+	return new Promise(poll);
+}
+
+async function waitForFakeHeaders()
+{
+	const poll = resolve => 
+	{
+		if(isHeadersStolen)
+		{
+			resolve();
+		}
+		else
+		{
+			setTimeout(() => poll(resolve), 1000);
+		}
 	}
 
 	return new Promise(poll);
