@@ -7,7 +7,7 @@ const TEXT_NETWORK_CALLBACK = "binance-chat";
 const URL_PRODUCT_PAGE = "https://www.binance.com/ru/nft/mystery-box/detail?number=1&productId=";
 const URL_AUCTION_PAGE = "https://www.binance.com/ru/nft/goods/mystery-box/detail?isOpen=true&itemId=";
 
-const REQUESTS_COUNT = 2;
+const REQUESTS_COUNT = 250;
 
 const puppeteer = require('puppeteer-extra')
 const stealthPlugin = require('puppeteer-extra-plugin-stealth')
