@@ -1,7 +1,7 @@
 {
   "name": "NFT-NPC",
   "description": "Automatic Binance mystery-boxes purchase bot",
-  "version": "0.3",
+  "version": "0.3.1",
 
   "main": "index.js",
 

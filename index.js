@@ -7,12 +7,11 @@ const TEXT_NETWORK_CALLBACK = "binance-chat";
 const URL_PRODUCT_PAGE = "https://www.binance.com/ru/nft/mystery-box/detail?number=1&productId=";
 const URL_AUCTION_PAGE = "https://www.binance.com/ru/nft/goods/mystery-box/detail?isOpen=true&itemId=";
 
-const REQUESTS_COUNT = 350;
-
-const DEV_MODE = true;
-
 const puppeteer = require('puppeteer-extra')
 const stealthPlugin = require('puppeteer-extra-plugin-stealth')
+
+var isDevModeEnabled = false;
+var requestsCount = 350;
 
 var config = require('./config.json');
 
@@ -38,6 +37,9 @@ main();
 // Main function
 async function main()
 {
+	// Init start arguments
+	initStartArguments();
+
 	// Create browser
 	await createBrowser();
 	
@@ -61,6 +63,20 @@ async function main()
 	
 	// Send purchase requests
 	await purchaseProduct();
+}
+
+function initStartArguments()
+{
+	process.argv.forEach(element => 
+	{
+		if(element == '-dev')
+		{
+			console.log("[NFT-NPC]: DEV MODE IS ENABLED!");
+
+			isDevModeEnabled = true;
+			requestsCount = 1;
+		}
+	});
 }
 
 async function openProductPage()
@@ -87,7 +103,7 @@ async function purchaseProduct()
 		}
 	});
 	
-	for(let i = 0; i < REQUESTS_COUNT; i++)
+	for(let i = 0; i < requestsCount; i++)
 	{
 		mainPage.evaluate((purchaseProductID) => 
 		{
@@ -212,7 +228,7 @@ async function getProductDetails()
 		productSaleTime = productDetails['data']['startTime'] - 2000;
 
 		// Testing mode
-		if(DEV_MODE)
+		if(isDevModeEnabled)
 			productSaleTime = getCurrentUnixTime() + 60000;
 
 		auctionPreparingTime = productSaleTime - 40000; // 40 seconds delay
