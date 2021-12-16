@@ -9,12 +9,12 @@ const URL_AUCTION_PAGE = "https://www.binance.com/ru/nft/goods/mystery-box/detai
 
 const REQUESTS_COUNT = 350;
 
+const DEV_MODE = true;
+
 const puppeteer = require('puppeteer-extra')
 const stealthPlugin = require('puppeteer-extra-plugin-stealth')
 
 var config = require('./config.json');
-
-var mysteryBoxID = "166716824921856000";
 
 var isUserSignIn = false;
 var browser;
@@ -66,7 +66,7 @@ async function main()
 async function openProductPage()
 {
 	// Open product page
-	await mainPage.goto(URL_PRODUCT_PAGE + mysteryBoxID);
+	await mainPage.goto(URL_PRODUCT_PAGE + config['mysteryBoxID']);
 }
 
 async function purchaseProduct()
@@ -92,7 +92,7 @@ async function purchaseProduct()
 		mainPage.evaluate((purchaseProductID) => 
 		{
 			window.bnvelidate.postBNHTTP('/bapi/nft/v1/private/nft/mystery-box/purchase', {number: 1, productId: purchaseProductID});
-		}, mysteryBoxID);
+		}, config['mysteryBoxID']);
 	}
 }
 
@@ -199,7 +199,7 @@ async function openAuctionPage()
 async function getProductDetails()
 {
 	// Open product page
-	mainPage.goto(URL_PRODUCT_PAGE + mysteryBoxID);
+	mainPage.goto(URL_PRODUCT_PAGE + config['mysteryBoxID']);
 	
 	// Wait for product details response
 	const productDetailsResponse = await mainPage.waitForResponse(response => response.url().includes(PRODUCT_NETWORK_CALLBACK));
@@ -210,6 +210,11 @@ async function getProductDetails()
 		isProductInitialised = true;
 				
 		productSaleTime = productDetails['data']['startTime'] - 2000;
+
+		// Testing mode
+		if(DEV_MODE)
+			productSaleTime = getCurrentUnixTime() + 60000;
+
 		auctionPreparingTime = productSaleTime - 40000; // 40 seconds delay
 				
 		console.log("[NFT-NPC]: Product initialised!"); 
