@@ -11,7 +11,9 @@ const puppeteer = require('puppeteer-extra')
 const stealthPlugin = require('puppeteer-extra-plugin-stealth')
 
 var isDevModeEnabled = false;
-var requestsCount = 350;
+var requestsCount = 550;
+var sentRequestsCount = 0;
+var purchaseIntervalID;
 
 var config = require('./config.json');
 
@@ -103,13 +105,20 @@ async function purchaseProduct()
 		}
 	});
 	
-	for(let i = 0; i < requestsCount; i++)
+	purchaseIntervalID = setInterval(sendPurchaseRequest, 25);
+}
+
+function sendPurchaseRequest()
+{
+	mainPage.evaluate((purchaseProductID) => 
 	{
-		mainPage.evaluate((purchaseProductID) => 
-		{
-			window.bnvelidate.postBNHTTP('/bapi/nft/v1/private/nft/mystery-box/purchase', {number: 1, productId: purchaseProductID});
-		}, config['mysteryBoxID']);
-	}
+		window.bnvelidate.postBNHTTP('/bapi/nft/v1/private/nft/mystery-box/purchase', {number: 1, productId: purchaseProductID});
+	}, config['mysteryBoxID']);
+
+	sentRequestsCount++;
+
+	if(sentRequestsCount >= requestsCount)
+		clearInterval(purchaseIntervalID);
 }
 
 async function createBrowser()
@@ -135,8 +144,30 @@ async function openAuctionPage()
 {
 	var auctionURL = URL_AUCTION_PAGE + config['auctionProductID'];
 	
-	auctionPage = await browser.newPage();
-	auctionPage.on('response', async response => {	
+	auctionPage = await browser.newPage();	
+
+	await auctionPage.setRequestInterception(true);
+
+	auctionPage.on('request', request => 
+	{		
+		if(request.url().includes(AUCTION_NETWORK_CALLBACK))
+		{
+			var data = 
+			{
+				 'method': 'POST',
+				 'postData': 'auction=0'
+			};
+
+			request.continue(data);
+		}
+		else
+		{
+			request.continue();
+		}
+	});
+
+	auctionPage.on('response', async response => 
+	{	
 		if(response.url().includes(TEXT_NETWORK_CALLBACK))
 		{
 			var jsonResponse = await response.json();
@@ -225,7 +256,7 @@ async function getProductDetails()
 
 		isProductInitialised = true;
 				
-		productSaleTime = productDetails['data']['startTime'] - 2000;
+		productSaleTime = productDetails['data']['startTime'] - 4000;
 
 		// Testing mode
 		if(isDevModeEnabled)
