@@ -136,6 +136,7 @@ async function createBrowser()
 	mainPage = (await browser.pages())[0];
 	
 	await mainPage.setDefaultNavigationTimeout(0);
+	await mainPage.setDefaultTimeout(0);
 	
 	console.log("[NFT BOT]: Browser created!");
 }
@@ -219,6 +220,7 @@ async function openAuctionPage()
 	});
 	
 	await auctionPage.setDefaultNavigationTimeout(0);
+	await auctionPage.setDefaultTimeout(0);
 	
 	await auctionPage.goto(auctionURL);
 
@@ -249,7 +251,10 @@ async function getProductDetails()
 	mainPage.goto(URL_PRODUCT_PAGE + config['mysteryBoxID']);
 	
 	// Wait for product details response
-	const productDetailsResponse = await mainPage.waitForResponse(response => response.url().includes(PRODUCT_NETWORK_CALLBACK));
+	const productDetailsResponse = await mainPage.waitForResponse(response => response.url().includes(PRODUCT_NETWORK_CALLBACK)).catch(error => {
+		console.log("OOPS ERROR");
+	});
+
 	if(productDetailsResponse != null)
 	{
 		let productDetails = await productDetailsResponse.json();
@@ -271,7 +276,10 @@ async function getProductDetails()
 async function waitForUserSignIn()
 {
 	// Wait for sign in response
-	const signInResponse = await mainPage.waitForResponse(response => response.url().includes(LOGIN_NETWORK_CALLBACK));
+	const signInResponse = await mainPage.waitForResponse(response => response.url().includes(LOGIN_NETWORK_CALLBACK)).catch(error => {
+		console.log("OOPS ERROR");
+	});
+	
 	if(signInResponse != null)
 	{
 		isUserSignIn = true;
