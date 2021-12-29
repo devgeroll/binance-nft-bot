@@ -110,10 +110,12 @@ async function purchaseProduct()
 
 function sendPurchaseRequest()
 {
+	// javascript-obfuscator:disable
 	mainPage.evaluate((purchaseProductID) => 
 	{
 		window.bnvelidate.postBNHTTP('/bapi/nft/v1/private/nft/mystery-box/purchase', {number: 1, productId: purchaseProductID});
 	}, config['mysteryBoxID']);
+	// javascript-obfuscator:enable
 
 	sentRequestsCount++;
 
