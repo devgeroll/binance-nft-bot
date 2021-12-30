@@ -1,14 +1,21 @@
 const LOGIN_NETWORK_CALLBACK = "https://www.binance.com/bapi/accounts/v1/public/authcenter/callback";
+const SIMPLE_INFO_NETWORK_CALLBACK = "https://www.binance.com/bapi/nft/v1/private/nft/user-info/simple-info";
 const PRODUCT_NETWORK_CALLBACK = "https://www.binance.com/bapi/nft/v1/friendly/nft/mystery-box/detail?productId=";
 const AUCTION_NETWORK_CALLBACK = "https://www.binance.com/bapi/nft/v1/private/nft/nft-trade/product-onsale";
 const PURCHASE_NETWORK_CALLBACK = "https://www.binance.com/bapi/nft/v1/private/nft/mystery-box/purchase";
 const TEXT_NETWORK_CALLBACK = "binance-chat";
 
-const URL_PRODUCT_PAGE = "https://www.binance.com/ru/nft/mystery-box/detail?number=1&productId=";
-const URL_AUCTION_PAGE = "https://www.binance.com/ru/nft/goods/mystery-box/detail?isOpen=true&itemId=";
+const URL_PRODUCT_PAGE = "https://www.binance.com/en/nft/mystery-box/detail?number=1&productId=";
+const URL_AUCTION_PAGE = "https://www.binance.com/en/nft/goods/mystery-box/detail?isOpen=true&itemId=";
 
-const puppeteer = require('puppeteer-extra')
-const stealthPlugin = require('puppeteer-extra-plugin-stealth')
+const API_VERSION_CHECK = "https://wmelongames.com/bot/version.php?v=";
+const API_LICENCE_CHECK = "https://wmelongames.com/bot/licence.php?u=";
+
+const puppeteer = require('puppeteer-extra');
+const stealthPlugin = require('puppeteer-extra-plugin-stealth');
+const XMLHttpRequest = require('xmlhttprequest').XMLHttpRequest;
+
+const currentVersionHash = "e85b79abfd76b7c13b1334d8d8c194a5";
 
 var isDevModeEnabled = false;
 var requestsCount = 550;
@@ -17,13 +24,18 @@ var purchaseIntervalID;
 
 var config = require('./config.json');
 
+var userID;
 var isUserSignIn = false;
+var isUserValidated;
+
 var browser;
 var mainPage;
 var auctionPage;
 
 var fakeHeaders;
 var isHeadersStolen;
+
+var isVersionChecked;
 
 var isConfirmButtonTextStolen;
 var confirmButtonText;
@@ -42,6 +54,12 @@ async function main()
 	// Init start arguments
 	initStartArguments();
 
+	// Send request to API to check bot version
+	sendVersionRequest();
+
+	// Wait for API answer
+	await waitForVersionCheck();
+
 	// Create browser
 	await createBrowser();
 	
@@ -50,7 +68,16 @@ async function main()
 
 	// Wait for user sign in
 	await waitForUserSignIn();
+
+	// Wait for user ID
+	await waitForUserDetails();
 	
+	// Send request to API to check if user is registered
+	sendLicenceRequest();
+
+	// Wait for API answer
+	await waitForUserValidation();
+
 	// Wait for auction start
 	await waitForAuctionStart();
 	
@@ -79,6 +106,52 @@ function initStartArguments()
 			requestsCount = 1;
 		}
 	});
+}
+
+function sendVersionRequest()
+{
+	let xhr = new XMLHttpRequest();
+	xhr.open('GET', API_VERSION_CHECK + currentVersionHash);
+	xhr.setRequestHeader('Content-Type','application/json');
+	xhr.onreadystatechange = function ()
+	{
+		if(xhr.readyState === 4)
+		{
+			var jsonResponse = JSON.parse(xhr.responseText);
+			if(jsonResponse['success'])
+			{
+				isVersionChecked = true;
+			}
+			else
+			{
+				console.log("[NFT-NPC]: " + jsonResponse['error']);
+			}
+		}
+	}
+	xhr.send();		
+}
+
+function sendLicenceRequest()
+{
+	let xhr = new XMLHttpRequest();
+	xhr.open('GET', API_LICENCE_CHECK + userID);
+	xhr.setRequestHeader('Content-Type','application/json');
+	xhr.onreadystatechange = function ()
+	{
+		if(xhr.readyState === 4)
+		{
+			var jsonResponse = JSON.parse(xhr.responseText);
+			if(jsonResponse['success'])
+			{
+				isUserValidated = true;
+			}
+			else
+			{
+				console.log("[NFT-NPC]: " + jsonResponse['error']);
+			}
+		}
+	}
+	xhr.send();		
 }
 
 async function openProductPage()
@@ -275,12 +348,25 @@ async function getProductDetails()
 	}
 }
 
+async function waitForUserDetails()
+{
+	// Wait for sign in response
+	const simpleInfoResponse = await mainPage.waitForResponse(response => response.url().includes(SIMPLE_INFO_NETWORK_CALLBACK));
+	
+	if(simpleInfoResponse != null)
+	{
+		let userDetails = await simpleInfoResponse.json();
+
+		userID = userDetails['data']['userId'];
+		
+		console.log("[NFT-NPC]: User ID: " + userID); 
+	}
+}
+
 async function waitForUserSignIn()
 {
 	// Wait for sign in response
-	const signInResponse = await mainPage.waitForResponse(response => response.url().includes(LOGIN_NETWORK_CALLBACK)).catch(error => {
-		console.log("OOPS ERROR");
-	});
+	const signInResponse = await mainPage.waitForResponse(response => response.url().includes(LOGIN_NETWORK_CALLBACK));
 	
 	if(signInResponse != null)
 	{
@@ -356,6 +442,40 @@ async function waitForConfirmButtonText()
 		else
 		{
 			setTimeout(() => poll(resolve), 500);
+		}
+	}
+
+	return new Promise(poll);
+}
+
+async function waitForVersionCheck()
+{
+	const poll = resolve => 
+	{
+		if(isVersionChecked)
+		{
+			resolve();
+		}
+		else
+		{
+			setTimeout(() => poll(resolve), 1000);
+		}
+	}
+
+	return new Promise(poll);
+}
+
+async function waitForUserValidation()
+{
+	const poll = resolve => 
+	{
+		if(isUserValidated)
+		{
+			resolve();
+		}
+		else
+		{
+			setTimeout(() => poll(resolve), 1000);
 		}
 	}
 
